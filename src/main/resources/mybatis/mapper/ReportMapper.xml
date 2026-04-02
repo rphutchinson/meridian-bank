@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  MyBatis mapper for Report operations.
+  Contains the richest Oracle SQL in the MyBatis layer:
+  RATIO_TO_REPORT, LISTAGG, NTILE, CUME_DIST, WIDTH_BUCKET, PIVOT,
+  CONNECT BY, and Oracle (+) outer join syntax.
+  Every Oracle construct is marked with ORACLE-DEP comments.
+-->
+<mapper namespace="com.meridianbank.mybatis.mapper.ReportMapper">
+
+    <!-- ============================================================
+         getPortfolioAllocation
+         RATIO_TO_REPORT analytic function + LISTAGG aggregation.
+         ORACLE-DEP [EMBEDDED_SQL:RATIO_TO_REPORT] [EMBEDDED_SQL:LISTAGG]
+         Migration: PostgreSQL uses SUM() OVER() for ratio; STRING_AGG for LISTAGG
+         ============================================================ -->
+    <select id="getPortfolioAllocation" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:RATIO_TO_REPORT] Portfolio allocation as fraction of total -->
+        <!-- ORACLE-DEP [EMBEDDED_SQL:LISTAGG] Aggregate account numbers into comma-separated list -->
+        SELECT a.account_type,
+               SUM(a.balance)                                      AS total_balance,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:RATIO_TO_REPORT] RATIO_TO_REPORT for percentage share -->
+               RATIO_TO_REPORT(SUM(a.balance)) OVER () * 100       AS percentage_share, <!-- ORACLE-DEP [EMBEDDED_SQL:RATIO_TO_REPORT] -->
+               COUNT(*)                                            AS account_count,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:LISTAGG] LISTAGG to aggregate account numbers -->
+               LISTAGG(a.account_number, ', ')                     <!-- ORACLE-DEP [EMBEDDED_SQL:LISTAGG] -->
+                   WITHIN GROUP (ORDER BY a.account_number)        AS account_numbers,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for null average interest rate -->
+               NVL(AVG(a.interest_rate), 0)                        AS avg_interest_rate <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+        FROM   meridian.accounts a
+        WHERE  a.customer_id = #{customerId}
+        AND    a.status = 'ACTIVE'
+        GROUP  BY a.account_type
+        ORDER  BY total_balance DESC
+    </select>
+
+    <!-- ============================================================
+         getMonthlyTransactionPivot
+         Oracle PIVOT clause for monthly summary matrix.
+         ORACLE-DEP [EMBEDDED_SQL:PIVOT_CLAUSE] [EMBEDDED_SQL:DECODE_FUNCTION]
+         Migration: Use PostgreSQL crosstab() from tablefunc extension or FILTER aggregates
+         ============================================================ -->
+    <select id="getMonthlyTransactionPivot" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:PIVOT_CLAUSE] Oracle PIVOT for monthly transaction matrix -->
+        SELECT *
+        FROM (
+            SELECT c.customer_id,
+                   c.first_name || ' ' || c.last_name          AS customer_name,
+                   <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] TO_CHAR for month abbreviation key -->
+                   TO_CHAR(t.transaction_date, 'MON')           AS mon, <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] -->
+                   t.amount,
+                   <!-- ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION] DECODE for credit/debit sign -->
+                   DECODE(t.transaction_type,                   <!-- ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION] -->
+                       'DEBIT',  -1 * t.amount,
+                       'FEE',    -1 * t.amount,
+                       t.amount) AS signed_amount
+            FROM   meridian.transactions t
+            JOIN   meridian.accounts a    ON a.account_id    = t.account_id
+            JOIN   meridian.customers c   ON c.customer_id   = a.customer_id
+            WHERE  <!-- ORACLE-DEP [EMBEDDED_SQL:TO_NUMBER] Assuming year passed as number param -->
+                   <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] TRUNC to extract year -->
+                   TO_NUMBER(TO_CHAR(t.transaction_date, 'YYYY')) = #{year} <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] [EMBEDDED_SQL:TO_NUMBER] -->
+            AND    (#{customerId} IS NULL OR c.customer_id = #{customerId})
+        )
+        PIVOT ( <!-- ORACLE-DEP [EMBEDDED_SQL:PIVOT_CLAUSE] -->
+            SUM(signed_amount)
+            FOR mon IN (
+                'JAN' AS jan_total, 'FEB' AS feb_total, 'MAR' AS mar_total,
+                'APR' AS apr_total, 'MAY' AS may_total, 'JUN' AS jun_total,
+                'JUL' AS jul_total, 'AUG' AS aug_total, 'SEP' AS sep_total,
+                'OCT' AS oct_total, 'NOV' AS nov_total, 'DEC' AS dec_total
+            )
+        ) <!-- ORACLE-DEP [EMBEDDED_SQL:PIVOT_CLAUSE] end PIVOT -->
+        ORDER BY customer_name
+    </select>
+
+    <!-- ============================================================
+         getCustomerRanking
+         NTILE and CUME_DIST analytic functions for customer ranking.
+         ORACLE-DEP [EMBEDDED_SQL:NTILE] [EMBEDDED_SQL:CUME_DIST]
+         Migration: PostgreSQL supports NTILE() and CUME_DIST() natively — same syntax
+         ============================================================ -->
+    <select id="getCustomerRanking" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:NTILE] NTILE for quartile ranking -->
+        <!-- ORACLE-DEP [EMBEDDED_SQL:CUME_DIST] CUME_DIST for cumulative distribution -->
+        SELECT c.customer_id,
+               c.first_name || ' ' || c.last_name              AS customer_name,
+               SUM(a.balance)                                   AS total_balance,
+               COUNT(a.account_id)                              AS account_count,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:NTILE] Divide customers into quartiles by total balance -->
+               NTILE(#{tileCount})                              <!-- ORACLE-DEP [EMBEDDED_SQL:NTILE] -->
+                   OVER (ORDER BY SUM(a.balance) DESC)          AS balance_quartile,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:CUME_DIST] Cumulative distribution within ranked customers -->
+               ROUND(CUME_DIST()                                <!-- ORACLE-DEP [EMBEDDED_SQL:CUME_DIST] -->
+                   OVER (ORDER BY SUM(a.balance) DESC) * 100, 2) AS cume_dist_pct,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for customers with no transactions -->
+               NVL(COUNT(t.transaction_id), 0)                  AS transaction_count <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+        FROM   meridian.customers c
+        JOIN   meridian.accounts  a ON a.customer_id = c.customer_id
+        LEFT JOIN meridian.transactions t ON t.account_id = a.account_id
+        WHERE  c.status = 'ACTIVE'
+        GROUP  BY c.customer_id, c.first_name, c.last_name
+        HAVING SUM(a.balance) >= #{minBalance}
+        ORDER  BY total_balance DESC
+    </select>
+
+    <!-- ============================================================
+         getTransactionDistribution
+         WIDTH_BUCKET analytic function for distribution analysis.
+         ORACLE-DEP [EMBEDDED_SQL:WIDTH_BUCKET]
+         Migration: PostgreSQL supports WIDTH_BUCKET() natively — same syntax
+         Also includes PARALLEL hint for large dataset.
+         ============================================================ -->
+    <select id="getTransactionDistribution" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_HINTS] PARALLEL hint for large transaction table scan -->
+        SELECT /*+ PARALLEL(t, 4) FULL(t) */ <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_HINTS] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:WIDTH_BUCKET] Bucket transactions by amount range -->
+               WIDTH_BUCKET(t.amount, 0, #{maxAmount}, #{buckets}) AS bucket_num, <!-- ORACLE-DEP [EMBEDDED_SQL:WIDTH_BUCKET] -->
+               COUNT(*)                                             AS txn_count,
+               SUM(t.amount)                                        AS bucket_total,
+               MIN(t.amount)                                        AS bucket_min,
+               MAX(t.amount)                                        AS bucket_max,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:RATIO_TO_REPORT] RATIO_TO_REPORT for bucket share -->
+               RATIO_TO_REPORT(COUNT(*)) OVER () * 100              AS pct_of_total <!-- ORACLE-DEP [EMBEDDED_SQL:RATIO_TO_REPORT] -->
+        FROM   meridian.transactions t
+        WHERE  t.transaction_type IN ('DEBIT', 'CREDIT')
+        <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] TRUNC for date-range boundary -->
+        AND    TRUNC(t.transaction_date) BETWEEN #{startDate} AND #{endDate} <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] -->
+        AND    t.amount > 0
+        GROUP  BY WIDTH_BUCKET(t.amount, 0, #{maxAmount}, #{buckets}) <!-- ORACLE-DEP [EMBEDDED_SQL:WIDTH_BUCKET] -->
+        ORDER  BY bucket_num
+    </select>
+
+    <!-- ============================================================
+         getEmployeeHierarchyReport
+         Oracle CONNECT BY hierarchical query with pseudocolumns.
+         ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY] [EMBEDDED_SQL:LEVEL_PSEUDOCOL]
+         [EMBEDDED_SQL:SYS_CONNECT_BY_PATH] [EMBEDDED_SQL:CONNECT_BY_ROOT]
+         Migration: Replace with PostgreSQL recursive CTE (WITH RECURSIVE)
+         ============================================================ -->
+    <select id="getEmployeeHierarchyReport" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY] Oracle hierarchical query -->
+        <!-- ORACLE-DEP [EMBEDDED_SQL:LEVEL_PSEUDOCOL] LEVEL = depth from root -->
+        <!-- ORACLE-DEP [EMBEDDED_SQL:SYS_CONNECT_BY_PATH] Full path from root -->
+        <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY_ROOT] Root node value -->
+        SELECT e.employee_id,
+               e.first_name,
+               e.last_name,
+               e.job_title,
+               e.manager_id,
+               e.department_id,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:LEVEL_PSEUDOCOL] Depth from start node -->
+               LEVEL                                                    AS hierarchy_level, <!-- ORACLE-DEP [EMBEDDED_SQL:LEVEL_PSEUDOCOL] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:SYS_CONNECT_BY_PATH] Full path string -->
+               SYS_CONNECT_BY_PATH(e.last_name, '/')                    AS hierarchy_path, <!-- ORACLE-DEP [EMBEDDED_SQL:SYS_CONNECT_BY_PATH] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY_ROOT] Root manager name -->
+               CONNECT_BY_ROOT e.first_name || ' ' || CONNECT_BY_ROOT e.last_name AS root_manager, <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY_ROOT] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY_ISLEAF] 1 if no subordinates -->
+               CONNECT_BY_ISLEAF                                        AS is_leaf, <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY_ISLEAF] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:LEVEL_PSEUDOCOL] Indent by hierarchy depth -->
+               LPAD(' ', (LEVEL - 1) * 4) || e.last_name               AS indented_name <!-- ORACLE-DEP [EMBEDDED_SQL:LEVEL_PSEUDOCOL] -->
+        FROM   meridian.employees e
+        <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY] CONNECT BY for parent-child traversal -->
+        CONNECT BY PRIOR e.employee_id = e.manager_id <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY] -->
+        <!-- ORACLE-DEP [EMBEDDED_SQL:START_WITH] Root of hierarchy -->
+        START WITH e.employee_id = NVL(#{rootEmployeeId}, (SELECT MIN(employee_id) FROM meridian.employees WHERE manager_id IS NULL)) <!-- ORACLE-DEP [EMBEDDED_SQL:START_WITH] [EMBEDDED_SQL:NVL_FUNCTION] -->
+        ORDER SIBLINGS BY e.last_name <!-- ORACLE-DEP [EMBEDDED_SQL:CONNECT_BY] ORDER SIBLINGS -->
+    </select>
+
+    <!-- ============================================================
+         getLegacyAccountReport
+         Oracle (+) outer join syntax — legacy style for assessment demonstration.
+         ORACLE-DEP [EMBEDDED_SQL:ORACLE_OUTER_JOIN]
+         Migration: Replace with ANSI LEFT OUTER JOIN syntax
+         ============================================================ -->
+    <select id="getLegacyAccountReport" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_OUTER_JOIN] Oracle (+) outer join notation -->
+        -- Legacy outer join syntax preserved for Oracle migration assessment
+        SELECT a.account_id,
+               a.account_number,
+               a.account_type,
+               a.balance,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for accounts with no transactions -->
+               NVL(t.amount, 0)                                         AS last_amount, <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+               NVL(t.transaction_type, 'NONE')                          AS last_type,   <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] Oracle TO_CHAR for date display -->
+               TO_CHAR(t.transaction_date, 'DD-MON-YYYY')               AS last_txn_date <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] -->
+        FROM   meridian.accounts     a,
+               meridian.transactions t
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_OUTER_JOIN] (+) indicates outer join side -->
+        WHERE  a.account_id     = t.account_id(+) <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_OUTER_JOIN] -->
+        AND    a.customer_id    = #{customerId}
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_OUTER_JOIN] (+) on date filter side for outer join -->
+        AND    t.transaction_date(+) BETWEEN #{startDate} AND #{endDate} <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_OUTER_JOIN] -->
+        ORDER  BY a.account_type, t.transaction_date DESC
+    </select>
+
+    <!-- ============================================================
+         getAccountAgingReport
+         Oracle date arithmetic: SYSDATE - date, MONTHS_BETWEEN, DECODE sort.
+         ORACLE-DEP [EMBEDDED_SQL:DATE_ARITHMETIC] [EMBEDDED_SQL:MONTHS_BETWEEN]
+         Migration: Use CURRENT_DATE - open_date (returns interval in PG), AGE()
+         ============================================================ -->
+    <select id="getAccountAgingReport" resultType="map">
+        SELECT a.account_id,
+               a.account_number,
+               a.account_type,
+               a.balance,
+               a.status,
+               a.open_date,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:DATE_ARITHMETIC] Oracle date - date returns NUMBER of days -->
+               TRUNC(SYSDATE - a.open_date)                             AS days_open, <!-- ORACLE-DEP [EMBEDDED_SQL:DATE_ARITHMETIC] [EMBEDDED_SQL:SYSDATE] [EMBEDDED_SQL:TRUNC_DATE] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:MONTHS_BETWEEN] MONTHS_BETWEEN returns fractional months -->
+               ROUND(MONTHS_BETWEEN(SYSDATE, a.open_date), 1)           AS months_open, <!-- ORACLE-DEP [EMBEDDED_SQL:MONTHS_BETWEEN] [EMBEDDED_SQL:SYSDATE] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION] DECODE for age bucket label -->
+               DECODE(SIGN(MONTHS_BETWEEN(SYSDATE, a.open_date) - 12), <!-- ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION] [EMBEDDED_SQL:MONTHS_BETWEEN] -->
+                   -1, 'LESS_THAN_1_YR',
+                    0, 'EXACTLY_1_YR',
+                    1, DECODE(SIGN(MONTHS_BETWEEN(SYSDATE, a.open_date) - 60),
+                           -1, '1_TO_5_YRS',
+                            1, 'OVER_5_YRS',
+                               '5_YEARS')) AS age_bucket
+        FROM   meridian.accounts a
+        WHERE  a.customer_id = #{customerId}
+        AND    (#{status} IS NULL OR a.status = #{status})
+        ORDER  BY DECODE(a.status, <!-- ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION] -->
+                     'ACTIVE',   1,
+                     'FROZEN',   2,
+                     'INACTIVE', 3,
+                     4),
+                  a.open_date
+    </select>
+
+</mapper>

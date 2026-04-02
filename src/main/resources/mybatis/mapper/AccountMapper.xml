@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  MyBatis mapper for Account operations.
+  Contains Oracle-specific SQL constructs documented via inline comments.
+  ORACLE-DEP markers identify every Oracle-proprietary SQL element.
+-->
+<mapper namespace="com.meridianbank.mybatis.mapper.AccountMapper">
+
+    <!-- ============================================================
+         Result Maps
+         ============================================================ -->
+
+    <resultMap id="AccountDTOMap" type="com.meridianbank.dto.AccountDTO">
+        <id     property="accountId"       column="account_id"/>
+        <result property="accountNumber"   column="account_number"/>
+        <result property="accountType"     column="account_type"/>
+        <result property="balance"         column="balance"/>
+        <result property="overdraftLimit"  column="overdraft_limit"/>
+        <result property="interestRate"    column="interest_rate"/>
+        <result property="status"          column="status"/>
+        <result property="openDate"        column="open_date"/>
+        <result property="closeDate"       column="close_date"/>
+        <result property="customerId"      column="customer_id"/>
+        <result property="branchId"        column="branch_id"/>
+        <result property="createdDate"     column="created_date"/>
+        <result property="updatedDate"     column="updated_date"/>
+        <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] effective_overdraft computed via NVL in SQL -->
+        <result property="effectiveOverdraftLimit" column="effective_overdraft"/>
+    </resultMap>
+
+    <!-- ============================================================
+         findByCustomerIdWithNvl
+         Uses Oracle NVL() for null-safe overdraft display.
+         ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION]
+         Migration: Replace NVL(overdraft_limit, 0) with COALESCE(overdraft_limit, 0)
+         ============================================================ -->
+    <select id="findByCustomerIdWithNvl" resultMap="AccountDTOMap">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for null overdraft limit default -->
+        SELECT a.account_id,
+               a.account_number,
+               a.account_type,
+               a.balance,
+               a.overdraft_limit,
+               NVL(a.overdraft_limit, 0)   AS effective_overdraft, <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+               a.interest_rate,
+               a.status,
+               a.open_date,
+               a.close_date,
+               a.customer_id,
+               a.branch_id,
+               a.created_date,
+               a.updated_date
+        FROM   meridian.accounts a
+        WHERE  a.customer_id = #{customerId}
+        -- ORACLE-DEP [EMBEDDED_SQL:SYSDATE] Exclude accounts closed more than 2 years ago
+        AND    (a.close_date IS NULL OR a.close_date > SYSDATE - 730) <!-- ORACLE-DEP [EMBEDDED_SQL:SYSDATE] -->
+        ORDER  BY a.account_type, a.open_date
+    </select>
+
+    <!-- ============================================================
+         findPagedByStatus
+         Uses Oracle ROWNUM for pre-12c style pagination.
+         ORACLE-DEP [EMBEDDED_SQL:ROWNUM]
+         Migration: Replace with OFFSET/FETCH FIRST (PostgreSQL, Oracle 12c+)
+         ============================================================ -->
+    <select id="findPagedByStatus" resultMap="AccountDTOMap">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ROWNUM] Pre-12c Oracle pagination pattern -->
+        SELECT * FROM (
+            SELECT a.*, ROWNUM rn <!-- ORACLE-DEP [EMBEDDED_SQL:ROWNUM] -->
+            FROM meridian.accounts a
+            WHERE a.status = #{status}
+            ORDER BY a.balance DESC
+        )
+        WHERE rn BETWEEN #{start} AND #{end} <!-- ORACLE-DEP [EMBEDDED_SQL:ROWNUM] -->
+    </select>
+
+    <!-- ============================================================
+         insertAccount
+         Uses Oracle selectKey with sequence NEXTVAL to generate ID before insert.
+         ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL]
+         Migration: Use PostgreSQL SERIAL/IDENTITY column or nextval('sequence_name')
+         ============================================================ -->
+    <insert id="insertAccount" parameterType="com.meridianbank.dto.AccountDTO">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL] Oracle sequence for ID generation -->
+        <selectKey keyProperty="accountId" resultType="long" order="BEFORE">
+            SELECT meridian.account_seq.NEXTVAL FROM DUAL <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL] -->
+        </selectKey>
+        INSERT INTO meridian.accounts (
+            account_id,
+            account_number,
+            account_type,
+            balance,
+            overdraft_limit,
+            interest_rate,
+            status,
+            open_date,
+            customer_id,
+            branch_id,
+            created_date
+        ) VALUES (
+            #{accountId},
+            #{accountNumber},
+            #{accountType},
+            #{balance},
+            #{overdraftLimit},
+            #{interestRate},
+            #{status},
+            <!-- ORACLE-DEP [EMBEDDED_SQL:SYSDATE] SYSDATE for open_date default -->
+            NVL(#{openDate}, SYSDATE), <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] + [EMBEDDED_SQL:SYSDATE] -->
+            #{customerId},
+            #{branchId},
+            SYSTIMESTAMP <!-- ORACLE-DEP [EMBEDDED_SQL:SYSTIMESTAMP] -->
+        )
+    </insert>
+
+    <!-- ============================================================
+         mergeAccountBalance
+         Uses Oracle MERGE for upsert (no separate INSERT/UPDATE needed).
+         ORACLE-DEP [EMBEDDED_SQL:MERGE_STATEMENT]
+         Migration: Replace with PostgreSQL INSERT ... ON CONFLICT DO UPDATE
+         ============================================================ -->
+    <update id="mergeAccountBalance">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:MERGE_STATEMENT] Oracle MERGE for balance upsert -->
+        MERGE INTO meridian.accounts tgt <!-- ORACLE-DEP [EMBEDDED_SQL:MERGE_STATEMENT] -->
+        USING (SELECT #{accountId} AS aid, #{balance} AS bal FROM DUAL) src <!-- ORACLE-DEP [EMBEDDED_SQL:DUAL_TABLE] -->
+        ON    (tgt.account_id = src.aid)
+        WHEN MATCHED THEN
+            UPDATE SET tgt.balance     = src.bal,
+                       tgt.updated_date = SYSTIMESTAMP <!-- ORACLE-DEP [EMBEDDED_SQL:SYSTIMESTAMP] -->
+        WHEN NOT MATCHED THEN
+            INSERT (account_id, balance, created_date)
+            VALUES (src.aid, src.bal, SYSTIMESTAMP)
+    </update>
+
+    <!-- ============================================================
+         findSummaryByTypeOrdered
+         Uses Oracle DECODE for custom sort order by account type.
+         ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION]
+         Migration: Replace DECODE with CASE expression
+         ============================================================ -->
+    <select id="findSummaryByTypeOrdered" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION] DECODE for conditional sort order -->
+        SELECT a.account_type,
+               COUNT(*)       AS account_count,
+               SUM(a.balance) AS total_balance,
+               AVG(a.balance) AS avg_balance,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for null balance -->
+               NVL(MIN(a.balance), 0) AS min_balance
+        FROM   meridian.accounts a
+        WHERE  a.customer_id = #{customerId}
+        GROUP  BY a.account_type
+        ORDER  BY DECODE(a.account_type, <!-- ORACLE-DEP [EMBEDDED_SQL:DECODE_FUNCTION] -->
+                      'CHECKING',     1,
+                      'SAVINGS',      2,
+                      'MONEY_MARKET', 3,
+                      'CD',           4,
+                      5)
+    </select>
+
+    <!-- ============================================================
+         getCurrentSequenceValue
+         ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_CURRVAL] + [EMBEDDED_SQL:DUAL_TABLE]
+         Migration: Use PostgreSQL currval('account_seq')
+         ============================================================ -->
+    <select id="getCurrentSequenceValue" resultType="long">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_CURRVAL] CURRVAL from Oracle sequence -->
+        SELECT meridian.account_seq.CURRVAL FROM DUAL <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_CURRVAL] [EMBEDDED_SQL:DUAL_TABLE] -->
+    </select>
+
+    <!-- ============================================================
+         findByCustomerWithHint
+         Uses Oracle optimizer hint for index-directed lookup.
+         ORACLE-DEP [EMBEDDED_SQL:ORACLE_HINTS]
+         Migration: Remove hint; PostgreSQL planner handles this automatically
+         ============================================================ -->
+    <select id="findByCustomerWithHint" resultMap="AccountDTOMap">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_HINTS] INDEX hint to direct Oracle optimizer -->
+        SELECT /*+ INDEX(a IDX_ACCT_CUSTOMER) */ <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_HINTS] -->
+               a.account_id,
+               a.account_number,
+               a.account_type,
+               a.balance,
+               NVL(a.overdraft_limit, 0) AS effective_overdraft, <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+               a.interest_rate,
+               a.status,
+               a.open_date,
+               a.customer_id,
+               a.branch_id
+        FROM   meridian.accounts a
+        WHERE  a.customer_id = #{customerId}
+        ORDER  BY a.open_date DESC
+    </select>
+
+</mapper>

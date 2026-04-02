@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian Bank — Oracle Migration Test App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #1a2e4a;
+      --navy-light: #243d61;
+      --gold: #c8963e;
+      --gold-light: #e8b65e;
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --border: #dde2ea;
+      --text: #2c3e50;
+      --text-muted: #6b7a8d;
+      --success: #27ae60;
+      --error: #e74c3c;
+      --warning: #f39c12;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--navy);
+      color: white;
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: var(--gold);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: bold; color: var(--navy);
+    }
+    .logo-text { font-size: 1.2rem; font-weight: 600; letter-spacing: 0.5px; }
+    .logo-sub { font-size: 0.7rem; color: var(--gold-light); font-weight: 400; margin-top: 1px; }
+    .header-status { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #888; transition: background 0.3s;
+    }
+    .status-dot.up { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.down { background: var(--error); }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: calc(100vh - 60px); }
+
+    nav {
+      width: 220px;
+      background: var(--navy-light);
+      padding: 1.5rem 0;
+      flex-shrink: 0;
+    }
+    .nav-section { margin-bottom: 1.5rem; }
+    .nav-label {
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: rgba(255,255,255,0.4);
+      padding: 0 1.2rem; margin-bottom: 0.5rem;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0.6rem 1.2rem;
+      color: rgba(255,255,255,0.75);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+      font-size: 0.88rem;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+    .nav-item.active {
+      background: rgba(200,150,62,0.15);
+      color: var(--gold-light);
+      border-left-color: var(--gold);
+    }
+    .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+    main { flex: 1; padding: 2rem; overflow-y: auto; }
+
+    /* ── Pages ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Page Header ── */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .page-title { font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+    .page-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card-title {
+      font-size: 0.9rem; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Stat Grid ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: var(--navy); line-height: 1.1; }
+    .stat-sub { font-size: 0.75rem; color: var(--text-muted); }
+    .stat-card.accent { border-top: 3px solid var(--gold); }
+    .stat-card.green { border-top: 3px solid var(--success); }
+    .stat-card.blue { border-top: 3px solid #3498db; }
+    .stat-card.red { border-top: 3px solid var(--error); }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th {
+      background: var(--bg); text-align: left;
+      padding: 0.75rem 1rem; font-weight: 600;
+      color: var(--text-muted); font-size: 0.78rem;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    tr:hover td { background: #f8f9fc; }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.73rem; font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .badge-green { background: #d5f5e3; color: #1e8449; }
+    .badge-blue { background: #d6eaf8; color: #1a5276; }
+    .badge-gold { background: #fdebd0; color: #a04000; }
+    .badge-red { background: #fadbd8; color: #922b21; }
+    .badge-gray { background: #eaecee; color: #566573; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 0.5rem 1.1rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--navy); color: white; }
+    .btn-primary:hover { background: var(--navy-light); }
+    .btn-gold { background: var(--gold); color: white; }
+    .btn-gold:hover { background: var(--gold-light); color: var(--navy); }
+    .btn-sm { padding: 0.3rem 0.8rem; font-size: 0.78rem; }
+
+    /* ── Loading & Error ── */
+    .loading {
+      text-align: center; padding: 3rem;
+      color: var(--text-muted); font-size: 0.9rem;
+    }
+    .loading-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg {
+      background: #fadbd8; color: #922b21;
+      padding: 0.75rem 1rem; border-radius: 6px;
+      font-size: 0.85rem; margin-bottom: 1rem;
+      border-left: 3px solid var(--error);
+    }
+
+    /* ── Oracle Dep Report ── */
+    .dep-domain-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    .dep-domain-header {
+      padding: 1rem 1.25rem;
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+    .dep-domain-header:hover { background: #edf0f4; }
+    .dep-domain-name { font-weight: 700; font-size: 0.95rem; color: var(--navy); }
+    .dep-domain-count { color: var(--text-muted); font-size: 0.85rem; }
+    .dep-domain-body { padding: 1rem 1.25rem; }
+    .dep-domain-body.collapsed { display: none; }
+    .dep-complexity-bar {
+      display: flex; gap: 4px; margin-top: 0.75rem;
+    }
+    .dep-bar-seg {
+      height: 6px; border-radius: 3px; min-width: 8px;
+    }
+    .bar-low { background: var(--success); }
+    .bar-med { background: var(--warning); }
+    .bar-high { background: #e67e22; }
+    .bar-vh { background: var(--error); }
+    .dep-legend { display: flex; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .dep-legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-muted); }
+    .dep-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── JSON viewer ── */
+    .json-viewer {
+      background: #1e2730; color: #a8d8a8;
+      border-radius: 8px; padding: 1rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem; line-height: 1.6;
+      overflow: auto; max-height: 500px;
+    }
+    .json-key { color: #79b8ff; }
+    .json-str { color: #a8d8a8; }
+    .json-num { color: #f0ad6a; }
+    .json-bool { color: #d67fb6; }
+
+    /* ── Dashboard grid ── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+    /* ── Search/filter row ── */
+    .filter-row {
+      display: flex; gap: 0.75rem; align-items: center;
+      margin-bottom: 1rem; flex-wrap: wrap;
+    }
+    .search-input {
+      padding: 0.5rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      flex: 1; min-width: 180px;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--navy); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 3rem;
+      color: var(--text-muted);
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .empty-text { font-size: 0.9rem; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--navy); color: white;
+      padding: 0.75rem 1.25rem; border-radius: 8px;
+      font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      transform: translateY(100px); opacity: 0;
+      transition: all 0.3s;
+      z-index: 999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1.5rem; }
+    .tab {
+      padding: 0.6rem 1.2rem; cursor: pointer;
+      font-size: 0.88rem; font-weight: 500;
+      color: var(--text-muted); border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: all 0.15s;
+    }
+    .tab:hover { color: var(--navy); }
+    .tab.active { color: var(--navy); border-bottom-color: var(--gold); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">M</div>
+    <div>
+      <div class="logo-text">Meridian Bank</div>
+      <div class="logo-sub">Oracle Migration Test Application</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="status-dot" id="healthDot"></div>
+    <span id="healthLabel">Checking...</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav>
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Banking</div>
+      <div class="nav-item" onclick="showPage('customers')">
+        <span class="nav-icon">👤</span> Customers
+      </div>
+      <div class="nav-item" onclick="showPage('accounts')">
+        <span class="nav-icon">🏦</span> Accounts
+      </div>
+      <div class="nav-item" onclick="showPage('transactions')">
+        <span class="nav-icon">💸</span> Transactions
+      </div>
+      <div class="nav-item" onclick="showPage('credit-cards')">
+        <span class="nav-icon">💳</span> Credit Cards
+      </div>
+      <div class="nav-item" onclick="showPage('loans')">
+        <span class="nav-icon">📋</span> Loans
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Operations</div>
+      <div class="nav-item" onclick="showPage('branches')">
+        <span class="nav-icon">📍</span> Branches
+      </div>
+      <div class="nav-item" onclick="showPage('employees')">
+        <span class="nav-icon">🏢</span> Employees
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Migration</div>
+      <div class="nav-item" onclick="showPage('dep-report')">
+        <span class="nav-icon">🔍</span> Dependency Report
+      </div>
+      <div class="nav-item" onclick="showPage('reports')">
+        <span class="nav-icon">📈</span> Oracle Reports
+      </div>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-subtitle">Live view of Meridian Bank data from Oracle Database</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+
+      <div class="stat-grid" id="dashStats">
+        <div class="stat-card accent">
+          <div class="stat-label">Customers</div>
+          <div class="stat-value" id="statCustomers">—</div>
+          <div class="stat-sub">registered</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Accounts</div>
+          <div class="stat-value" id="statAccounts">—</div>
+          <div class="stat-sub">active</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Branches</div>
+          <div class="stat-value" id="statBranches">—</div>
+          <div class="stat-sub">locations</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Oracle Deps</div>
+          <div class="stat-value" id="statDeps">—</div>
+          <div class="stat-sub">annotated</div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-title">Recent Branches</div>
+          <div id="dashBranches"><div class="loading"><div class="loading-spinner"></div>Loading...</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Oracle Dependency Domains</div>
+          <div id="dashDepDomains"><div class="loading"><div class="loading-spinner"></div>Loading...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CUSTOMERS ── -->
+    <div class="page" id="page-customers">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Customers</div>
+          <div class="page-subtitle">Customer records from Oracle — queries use NVL, ROWNUM, TO_CHAR</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadPage('customers')">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <input class="search-input" type="text" placeholder="Search customers..." id="customerSearch" oninput="filterTable('customerTbl', this.value)">
+        </div>
+        <div class="table-wrap" id="customerTbl">
+          <div class="loading"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ACCOUNTS ── -->
+    <div class="page" id="page-accounts">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Accounts</div>
+          <div class="page-subtitle">Account data — uses DECODE, MERGE, sequence.NEXTVAL</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadPage('accounts')">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="filter-row">
+          <input class="search-input" type="text" placeholder="Filter accounts..." id="accountSearch" oninput="filterTable('accountTbl', this.value)">
+        </div>
+        <div class="table-wrap" id="accountTbl">
+          <div class="loading"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRANSACTIONS ── -->
+    <div class="page" id="page-transactions">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Transactions</div>
+          <div class="page-subtitle">Transactions — uses Oracle date arithmetic, TIMESTAMP WITH TIME ZONE</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadPage('transactions')">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap" id="transactionTbl">
+          <div class="loading"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CREDIT CARDS ── -->
+    <div class="page" id="page-credit-cards">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Credit Cards</div>
+          <div class="page-subtitle">Credit card records — LISTAGG, NTILE, CUME_DIST analytics</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadPage('credit-cards')">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap" id="creditCardTbl">
+          <div class="loading"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOANS ── -->
+    <div class="page" id="page-loans">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Loan Applications</div>
+          <div class="page-subtitle">Loans — PL/SQL package calls, MONTHS_BETWEEN, ADD_MONTHS</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadPage('loans')">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap" id="loanTbl">
+          <div class="loading"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BRANCHES ── -->
+    <div class="page" id="page-branches">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Branches</div>
+          <div class="page-subtitle">Branches — Oracle Spatial SDO_GEOMETRY, SDO_WITHIN_DISTANCE</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadPage('branches')">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap" id="branchTbl">
+          <div class="loading"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EMPLOYEES ── -->
+    <div class="page" id="page-employees">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Employee Hierarchy</div>
+          <div class="page-subtitle">Org chart — CONNECT BY PRIOR, LEVEL, SYS_CONNECT_BY_PATH</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="loadPage('employees')">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap" id="employeeTbl">
+          <div class="loading"><div class="loading-spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DEPENDENCY REPORT ── -->
+    <div class="page" id="page-dep-report">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Oracle Dependency Report</div>
+          <div class="page-subtitle">Ground truth inventory of all @OracleDependency annotations — used to validate migration framework</div>
+        </div>
+        <button class="btn btn-gold btn-sm" onclick="loadDepReport()">↻ Scan</button>
+      </div>
+      <div id="depReportContent">
+        <div class="loading"><div class="loading-spinner"></div>Scanning classpath for @OracleDependency annotations...</div>
+      </div>
+    </div>
+
+    <!-- ── REPORTS ── -->
+    <div class="page" id="page-reports">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Oracle Analytics Reports</div>
+          <div class="page-subtitle">Reports using RATIO_TO_REPORT, WIDTH_BUCKET, PIVOT, LISTAGG</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('portfolio')">Portfolio Summary</div>
+        <div class="tab" onclick="switchTab('ranking')">Customer Ranking</div>
+        <div class="tab" onclick="switchTab('distribution')">Tx Distribution</div>
+      </div>
+      <div id="reportPortfolio" class="report-tab">
+        <div class="card">
+          <div class="card-title">Portfolio Allocation (RATIO_TO_REPORT)</div>
+          <div class="filter-row" style="margin-bottom:0.75rem">
+            <label style="font-size:0.85rem;color:var(--text-muted)">Customer ID:</label>
+            <input id="portfolioCustomerId" type="number" class="search-input" style="max-width:120px" value="1">
+            <button class="btn btn-primary btn-sm" onclick="loadReport('portfolio-summary?customerId='+document.getElementById('portfolioCustomerId').value, 'portfolioData')">Load Report</button>
+          </div>
+          <div id="portfolioData" style="margin-top:1rem"></div>
+        </div>
+      </div>
+      <div id="reportRanking" class="report-tab" style="display:none">
+        <div class="card">
+          <div class="card-title">Customer Ranking (NTILE / CUME_DIST)</div>
+          <button class="btn btn-primary btn-sm" onclick="loadReport('customer-ranking', 'rankingData')">Load Report</button>
+          <div id="rankingData" style="margin-top:1rem"></div>
+        </div>
+      </div>
+      <div id="reportDistribution" class="report-tab" style="display:none">
+        <div class="card">
+          <div class="card-title">Transaction Distribution (WIDTH_BUCKET)</div>
+          <div class="filter-row" style="margin-bottom:0.75rem">
+            <label style="font-size:0.85rem;color:var(--text-muted)">Account ID:</label>
+            <input id="distAccountId" type="number" class="search-input" style="max-width:120px" value="1">
+            <button class="btn btn-primary btn-sm" onclick="loadReport('transaction-distribution?accountId='+document.getElementById('distAccountId').value, 'distributionData')">Load Report</button>
+          </div>
+          <div id="distributionData" style="margin-top:1rem"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentPage = 'dashboard';
+let pageLoaded = {};
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  currentPage = name;
+  if (!pageLoaded[name]) {
+    pageLoaded[name] = true;
+    loadPage(name);
+  }
+}
+
+// ── API helper ──────────────────────────────────────────────────────────────
+async function api(path) {
+  const r = await fetch('/api/' + path);
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ message: r.statusText }));
+    throw new Error(e.message || r.statusText);
+  }
+  return r.json();
+}
+
+// ── Health Check ────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const h = await fetch('/actuator/health').then(r => r.json());
+    const up = h.status === 'UP';
+    document.getElementById('healthDot').className = 'status-dot ' + (up ? 'up' : 'down');
+    document.getElementById('healthLabel').textContent = up ? 'Oracle Connected' : 'DB Down';
+  } catch {
+    document.getElementById('healthLabel').textContent = 'Unreachable';
+  }
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Generic table renderer ────────────────────────────────────────────────
+function renderTable(containerId, rows, cols) {
+  const el = document.getElementById(containerId);
+  if (!rows || rows.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No records found</div></div>';
+    return;
+  }
+  const thead = cols.map(c => `<th>${c.label}</th>`).join('');
+  const tbody = rows.map(row => {
+    const cells = cols.map(c => {
+      let val = row[c.key];
+      if (val === null || val === undefined) val = '<span style="color:#aaa">—</span>';
+      if (c.badge) val = badge(val, c.badge);
+      if (c.money) val = val !== '—' ? '$' + Number(val).toLocaleString('en-US', {minimumFractionDigits: 2}) : val;
+      if (c.date && val !== '—') val = new Date(val).toLocaleDateString();
+      return `<td>${val}</td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+  el.innerHTML = `<table data-rows='${JSON.stringify(rows)}' data-cols='${JSON.stringify(cols)}'>
+    <thead><tr>${thead}</tr></thead>
+    <tbody>${tbody}</tbody>
+  </table>`;
+}
+
+function badge(val, map) {
+  const cls = map[val] || map['_default'] || 'gray';
+  return `<span class="badge badge-${cls}">${val}</span>`;
+}
+
+function renderError(containerId, msg) {
+  document.getElementById(containerId).innerHTML = `<div class="error-msg">⚠ ${msg}</div>`;
+}
+
+// ── Filter ───────────────────────────────────────────────────────────────────
+function filterTable(containerId, query) {
+  const tbl = document.querySelector('#' + containerId + ' table');
+  if (!tbl) return;
+  const q = query.toLowerCase();
+  tbl.querySelectorAll('tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  // Load counts in parallel
+  const [branches, depReport] = await Promise.allSettled([
+    api('branches'),
+    api('admin/dependency-report')
+  ]);
+
+  if (branches.status === 'fulfilled') {
+    document.getElementById('statBranches').textContent = branches.value.length;
+    renderBranchCards(branches.value.slice(0, 5));
+  } else {
+    document.getElementById('dashBranches').innerHTML = `<div class="error-msg">⚠ ${branches.reason.message}</div>`;
+  }
+
+  if (depReport.status === 'fulfilled') {
+    document.getElementById('statDeps').textContent = depReport.value.totalDependencies || '—';
+    renderDepDomainChart(depReport.value);
+  } else {
+    document.getElementById('dashDepDomains').innerHTML = `<div class="error-msg">⚠ ${depReport.reason.message}</div>`;
+  }
+
+  // Try customers and accounts counts
+  const [custs, accts] = await Promise.allSettled([
+    api('customers?page=1&size=50'),
+    api('accounts/ordered-by-type')
+  ]);
+  if (custs.status === 'fulfilled') {
+    const arr = Array.isArray(custs.value) ? custs.value : custs.value.content || [];
+    document.getElementById('statCustomers').textContent = arr.length;
+  }
+  if (accts.status === 'fulfilled') {
+    const arr = Array.isArray(accts.value) ? accts.value : accts.value.content || [];
+    document.getElementById('statAccounts').textContent = arr.length;
+  }
+}
+
+function renderBranchCards(branches) {
+  const el = document.getElementById('dashBranches');
+  if (!branches.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📍</div><div class="empty-text">No branches</div></div>'; return; }
+  el.innerHTML = branches.map(b => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600;font-size:0.88rem">${escHtml(b.branchCode || b.branchName || 'Unknown')}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted)">${escHtml(b.region || '')} · ${escHtml(b.phone || '')}</div>
+      </div>
+      ${b.status ? badge(b.status, {'Active':'green','ACTIVE':'green','Under Review':'gold','Closed':'red','_default':'gray'}) : ''}
+    </div>
+  `).join('');
+}
+
+function renderDepDomainChart(report) {
+  const el = document.getElementById('dashDepDomains');
+  if (!report.byDomain) { el.innerHTML = '<div class="empty-state">No data</div>'; return; }
+  const total = report.totalDependencies || 1;
+  el.innerHTML = Object.entries(report.byDomain).map(([domain, data]) => {
+    const pct = Math.round((data.count / total) * 100);
+    const low = data.low || 0, med = data.medium || 0, high = data.high || 0, vh = data.veryHigh || 0;
+    const dTotal = low + med + high + vh || 1;
+    return `
+      <div style="margin-bottom:0.75rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:0.82rem;font-weight:600">${domain.replace(/_/g,' ')}</span>
+          <span style="font-size:0.78rem;color:var(--text-muted)">${data.count} (${pct}%)</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:8px;display:flex;overflow:hidden">
+          <div style="width:${(low/dTotal)*100}%;background:var(--success)"></div>
+          <div style="width:${(med/dTotal)*100}%;background:var(--warning)"></div>
+          <div style="width:${(high/dTotal)*100}%;background:#e67e22"></div>
+          <div style="width:${(vh/dTotal)*100}%;background:var(--error)"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Page Loaders ─────────────────────────────────────────────────────────────
+async function loadPage(name) {
+  const loaders = {
+    dashboard: loadDashboard,
+    customers: loadCustomers,
+    accounts:  loadAccounts,
+    transactions: loadTransactions,
+    'credit-cards': loadCreditCards,
+    loans:     loadLoans,
+    branches:  loadBranches,
+    employees: loadEmployees,
+    'dep-report': loadDepReport,
+    reports:   () => {}
+  };
+  if (loaders[name]) await loaders[name]();
+}
+
+async function loadCustomers() {
+  try {
+    const data = await api('customers?page=1&size=50');
+    const rows = Array.isArray(data) ? data : data.content || [];
+    renderTable('customerTbl', rows, [
+      { key: 'customerId', label: 'ID' },
+      { key: 'firstName', label: 'First Name' },
+      { key: 'lastName', label: 'Last Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'status', label: 'Status', badge: { ACTIVE:'green', INACTIVE:'gray', SUSPENDED:'red', _default:'gray' } },
+      { key: 'createdDate', label: 'Created', date: true }
+    ]);
+  } catch (e) { renderError('customerTbl', e.message); }
+}
+
+async function loadAccounts() {
+  try {
+    const data = await api('accounts/ordered-by-type');
+    const rows = Array.isArray(data) ? data : data.content || [];
+    renderTable('accountTbl', rows, [
+      { key: 'accountId', label: 'ID' },
+      { key: 'accountNumber', label: 'Account #' },
+      { key: 'accountType', label: 'Type', badge: { CHECKING:'blue', SAVINGS:'green', MONEY_MARKET:'gold', _default:'gray' } },
+      { key: 'balance', label: 'Balance', money: true },
+      { key: 'status', label: 'Status', badge: { ACTIVE:'green', CLOSED:'red', FROZEN:'gold', _default:'gray' } },
+      { key: 'openDate', label: 'Opened', date: true }
+    ]);
+  } catch (e) { renderError('accountTbl', e.message); }
+}
+
+async function loadTransactions() {
+  const el = document.getElementById('transactionTbl');
+  try {
+    const data = await api('transactions/overdue-settlements');
+    const rows = Array.isArray(data) ? data : [];
+    if (rows.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No overdue settlements found</div></div>';
+      return;
+    }
+    if (Array.isArray(rows[0])) {
+      // Object[] returned — render with positional column labels
+      const cols = ['Account ID', 'Transaction ID', 'Type', 'Amount', 'Transaction Date', 'Days Overdue'];
+      el.innerHTML = `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${
+        rows.map(row => `<tr>${row.map(v => `<td>${v !== null && v !== undefined ? escHtml(String(v)) : '<span style="color:#aaa">—</span>'}</td>`).join('')}</tr>`).join('')
+      }</tbody></table>`;
+      return;
+    }
+    renderTable('transactionTbl', rows, [
+      { key: 'transactionId', label: 'ID' },
+      { key: 'accountId', label: 'Account' },
+      { key: 'transactionType', label: 'Type', badge: { DEBIT:'red', CREDIT:'green', TRANSFER:'blue', FEE:'gold', _default:'gray' } },
+      { key: 'amount', label: 'Amount', money: true },
+      { key: 'description', label: 'Description' },
+      { key: 'status', label: 'Status', badge: { COMPLETED:'green', PENDING:'gold', FAILED:'red', _default:'gray' } },
+      { key: 'transactionDate', label: 'Date', date: true }
+    ]);
+  } catch (e) { renderError('transactionTbl', e.message); }
+}
+
+async function loadCreditCards() {
+  try {
+    const data = await api('credit-cards/top-high-balance?topN=50');
+    const rows = Array.isArray(data) ? data : data.content || [];
+    renderTable('creditCardTbl', rows, [
+      { key: 'cardId', label: 'ID' },
+      { key: 'cardNumberMasked', label: 'Card #' },
+      { key: 'cardType', label: 'Type', badge: { PLATINUM:'gold', GOLD:'gold', REWARDS:'blue', SECURED:'gray', _default:'gray' } },
+      { key: 'creditLimit', label: 'Limit', money: true },
+      { key: 'currentBalance', label: 'Balance', money: true },
+      { key: 'status', label: 'Status', badge: { ACTIVE:'green', SUSPENDED:'gold', CLOSED:'red', EXPIRED:'gray', _default:'gray' } },
+      { key: 'rewardPoints', label: 'Reward Pts' }
+    ]);
+  } catch (e) { renderError('creditCardTbl', e.message); }
+}
+
+async function loadLoans() {
+  try {
+    // Use by-status endpoint — shows all statuses by trying each
+    let data = [];
+    for (const status of ['PENDING', 'UNDER_REVIEW', 'APPROVED', 'DENIED']) {
+      try {
+        const batch = await api('loans/by-status?status=' + status);
+        if (Array.isArray(batch)) data = data.concat(batch);
+      } catch (_) {}
+      if (data.length >= 50) break;
+    }
+    renderTable('loanTbl', data, [
+      { key: 'applicationId', label: 'ID' },
+      { key: 'customerId', label: 'Customer' },
+      { key: 'loanType', label: 'Type', badge: { PERSONAL:'blue', MORTGAGE:'green', AUTO:'gold', BUSINESS:'red', _default:'gray' } },
+      { key: 'requestedAmount', label: 'Requested', money: true },
+      { key: 'approvedAmount', label: 'Approved', money: true },
+      { key: 'status', label: 'Status', badge: { APPROVED:'green', PENDING:'gold', DENIED:'red', UNDER_REVIEW:'blue', _default:'gray' } },
+      { key: 'applicationDate', label: 'Applied', date: true }
+    ]);
+  } catch (e) { renderError('loanTbl', e.message); }
+}
+
+async function loadBranches() {
+  try {
+    const data = await api('branches');
+    const rows = Array.isArray(data) ? data : [];
+    renderTable('branchTbl', rows, [
+      { key: 'branchId', label: 'ID' },
+      { key: 'branchName', label: 'Name' },
+      { key: 'branchCode', label: 'Code' },
+      { key: 'region', label: 'Region', badge: { NORTHEAST:'blue', MIDWEST:'green', SOUTH:'gold', WEST:'red', SOUTHEAST:'blue', _default:'gray' } },
+      { key: 'phone', label: 'Phone' },
+      { key: 'street', label: 'Manager' },
+      { key: 'status', label: 'Status', badge: { Open:'green', Closed:'red', 'Temporarily Closed':'gold', 'Under Review':'gray', _default:'gray' } }
+    ]);
+  } catch (e) { renderError('branchTbl', e.message); }
+}
+
+async function loadEmployees() {
+  try {
+    const data = await api('employees/hierarchy/full');
+    const rows = Array.isArray(data) ? data : data.content || [];
+    renderTable('employeeTbl', rows, [
+      { key: 'employeeId', label: 'ID' },
+      { key: 'fullName', label: 'Name' },
+      { key: 'jobTitle', label: 'Title' },
+      { key: 'department', label: 'Dept' },
+      { key: 'level', label: 'Level' },
+      { key: 'hierarchyPath', label: 'Org Path' }
+    ]);
+  } catch (e) { renderError('employeeTbl', e.message); }
+}
+
+// ── Dependency Report ────────────────────────────────────────────────────────
+async function loadDepReport() {
+  const el = document.getElementById('depReportContent');
+  el.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Scanning classpath...</div>';
+  try {
+    const report = await api('admin/dependency-report');
+    renderDepReport(report);
+  } catch (e) {
+    el.innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+function renderDepReport(report) {
+  const el = document.getElementById('depReportContent');
+  const total = report.totalDependencies || 0;
+
+  let html = `
+    <div class="stat-grid" style="margin-bottom:1.5rem">
+      <div class="stat-card accent">
+        <div class="stat-label">Total Dependencies</div>
+        <div class="stat-value">${total}</div>
+        <div class="stat-sub">annotated</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Domains Covered</div>
+        <div class="stat-value">${Object.keys(report.byDomain || {}).length}</div>
+        <div class="stat-sub">taxonomy domains</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Full Automation</div>
+        <div class="stat-value">${countByAutomation(report.dependencies, 'FULL')}</div>
+        <div class="stat-sub">auto-transformable</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Manual Review</div>
+        <div class="stat-value">${countByAutomation(report.dependencies, 'MANUAL')}</div>
+        <div class="stat-sub">need human review</div>
+      </div>
+    </div>`;
+
+  if (report.byDomain) {
+    html += '<div>';
+    for (const [domain, data] of Object.entries(report.byDomain)) {
+      const domDeps = (report.dependencies || []).filter(d => d.domain === domain);
+      html += `
+        <div class="dep-domain-card">
+          <div class="dep-domain-header" onclick="toggleDomain(this)">
+            <div>
+              <div class="dep-domain-name">${domain.replace(/_/g,' ')}</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">
+                LOW: ${data.low||0} · MED: ${data.medium||0} · HIGH: ${data.high||0} · VERY HIGH: ${data.veryHigh||0}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:1rem">
+              <span class="badge badge-blue">${data.count} deps</span>
+              <span style="color:var(--text-muted);font-size:1rem">▼</span>
+            </div>
+          </div>
+          <div class="dep-domain-body collapsed">
+            ${renderDepTable(domDeps)}
+          </div>
+        </div>`;
+    }
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function renderDepTable(deps) {
+  if (!deps.length) return '<div style="color:var(--text-muted);font-size:0.85rem">No detail available.</div>';
+  const rows = deps.slice(0, 30).map(d => `
+    <tr>
+      <td><code style="font-size:0.78rem;background:#f0f3f8;padding:1px 5px;border-radius:3px">${escHtml(d.category||'')}</code></td>
+      <td style="font-size:0.8rem">${escHtml(d.className||'').split('.').pop()}.${escHtml(d.methodName||'')}</td>
+      <td>${d.complexity ? `<span class="badge badge-${complexityBadge(d.complexity)}">${d.complexity}</span>` : ''}</td>
+      <td style="font-size:0.78rem">${d.automationLevel ? `<span class="badge badge-${automationBadge(d.automationLevel)}">${d.automationLevel}</span>` : ''}</td>
+      <td style="font-size:0.78rem;color:var(--text-muted)">${escHtml((d.migrationTarget||'').substring(0,60))}${(d.migrationTarget||'').length > 60 ? '…' : ''}</td>
+    </tr>`).join('');
+  return `<table style="margin-top:0.5rem">
+    <thead><tr><th>Category</th><th>Location</th><th>Complexity</th><th>Automation</th><th>Migration Target</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>${deps.length > 30 ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.5rem">… and ${deps.length-30} more</div>` : ''}`;
+}
+
+function toggleDomain(header) {
+  const body = header.nextElementSibling;
+  body.classList.toggle('collapsed');
+  header.querySelector('span:last-child').textContent = body.classList.contains('collapsed') ? '▼' : '▲';
+}
+
+function countByAutomation(deps, level) {
+  if (!deps) return 0;
+  return deps.filter(d => d.automationLevel === level).length;
+}
+
+function complexityBadge(c) {
+  return { LOW:'green', MEDIUM:'gold', HIGH:'red', VERY_HIGH:'red' }[c] || 'gray';
+}
+function automationBadge(a) {
+  return { FULL:'green', PARTIAL:'gold', MANUAL:'red' }[a] || 'gray';
+}
+
+// ── Reports ──────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.report-tab').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('report' + name.charAt(0).toUpperCase() + name.slice(1)).style.display = 'block';
+  event.currentTarget.classList.add('active');
+}
+
+async function loadReport(endpoint, containerId) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Running Oracle analytics query...</div>';
+  try {
+    const data = await api('reports/' + endpoint);
+    if (Array.isArray(data) && data.length > 0) {
+      const keys = Object.keys(data[0]);
+      el.innerHTML = `<table>
+        <thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>
+        <tbody>${data.map(row =>
+          `<tr>${keys.map(k => `<td>${row[k] !== null && row[k] !== undefined ? escHtml(String(row[k])) : '<span style="color:#aaa">—</span>'}</td>`).join('')}</tr>`
+        ).join('')}</tbody>
+      </table>`;
+    } else {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No data returned</div></div>';
+    }
+  } catch (e) {
+    el.innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+checkHealth();
+setInterval(checkHealth, 15000);
+pageLoaded['dashboard'] = true;
+loadDashboard();
+loadDepReport();
+</script>
+</body>
+</html>

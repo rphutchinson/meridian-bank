@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: meridian-bank
+
+  # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL] Oracle thin JDBC URL (service name format)
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/FREEPDB1   # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL]
+    username: MERIDIAN
+    password: MeridianBank2026
+    driver-class-name: oracle.jdbc.OracleDriver          # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_DRIVER]
+
+    hikari:
+      pool-name: MeridianHikariPool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_VALIDATION] Oracle-specific validation query
+      connection-test-query: SELECT 1 FROM DUAL         # ORACLE-DEP [CONNECTIVITY_CONFIG:DUAL_TABLE]
+
+  jpa:
+    # ORACLE-DEP [ORM_DATA_ACCESS:ORACLE_DIALECT] Hibernate Oracle dialect
+    database-platform: org.hibernate.dialect.OracleDialect  # ORACLE-DEP [ORM_DATA_ACCESS:ORACLE_DIALECT]
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect         # ORACLE-DEP [ORM_DATA_ACCESS:ORACLE_DIALECT]
+        format_sql: false
+        default_schema: MERIDIAN
+        jdbc:
+          batch_size: 50
+          fetch_size: 100
+        order_inserts: true
+        order_updates: true
+        # ORACLE-DEP [ORM_DATA_ACCESS:SEQUENCE_GENERATOR] Oracle sequence-based ID generation
+        id:
+          new_generator_mappings: true
+
+  liquibase:
+    enabled: false   # Using init-scripts directly for Oracle; enable for migration mode
+
+  # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_AQ_JMS] Oracle AQ JMS auto-configuration
+  jms:
+    pub-sub-domain: false
+
+# ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_PROPERTIES] Oracle JDBC connection properties
+oracle:
+  jdbc:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_NCHAR] Oracle NChar encoding property
+    defaultNChar: false                                  # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_NCHAR]
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_STMT_CACHE] Statement cache size
+    implicitStatementCacheSize: 50                       # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_STMT_CACHE]
+  net:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_CONNECT_TIMEOUT] Oracle Net connect timeout
+    CONNECT_TIMEOUT: 10000                               # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_CONNECT_TIMEOUT]
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.meridianbank: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.jdbc: WARN
+
+server:
+  port: 8080
+  servlet:
+    context-path: /

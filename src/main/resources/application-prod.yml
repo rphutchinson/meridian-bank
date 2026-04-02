@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL] Service-name format URL for production
+    url: jdbc:oracle:thin:@//prod-oracle.meridianbank.internal:1521/MERIDIANPRD  # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL_SERVICE]
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_VALIDATION] Production validation query
+      connection-test-query: SELECT 1 FROM DUAL          # ORACLE-DEP [CONNECTIVITY_CONFIG:DUAL_TABLE]
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.meridianbank: WARN
+    root: ERROR

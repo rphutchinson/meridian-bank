@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+        ORACLE-DEP [ORM_DATA_ACCESS:LIQUIBASE] Oracle-specific column types in Liquibase DDL
+        This file is Oracle-only: uses VARCHAR2, NUMBER, DATE, CLOB, BLOB, RAW types.
+    -->
+
+    <!-- ORACLE-DEP [ORM_DATA_ACCESS:LIQUIBASE] Oracle-only precondition -->
+    <preConditions onFail="MARK_RAN">
+        <dbms type="oracle"/>  <!-- ORACLE-DEP [ORM_DATA_ACCESS:LIQUIBASE] dbms precondition -->
+    </preConditions>
+
+    <changeSet id="001-addresses" author="meridian" dbms="oracle">
+        <createTable tableName="ADDRESSES" schemaName="MERIDIAN">
+            <!-- ORACLE-DEP [EMBEDDED_SQL:NUMBER_TYPE] NUMBER Oracle type -->
+            <column name="ADDRESS_ID"   type="NUMBER(19)"    ><constraints primaryKey="true"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:VARCHAR2_TYPE] VARCHAR2 Oracle type -->
+            <column name="STREET"       type="VARCHAR2(200)" ><constraints nullable="false"/></column>
+            <column name="CITY"         type="VARCHAR2(100)" ><constraints nullable="false"/></column>
+            <column name="STATE_CODE"   type="VARCHAR2(50)"  ><constraints nullable="false"/></column>
+            <column name="ZIP_CODE"     type="VARCHAR2(20)"  ><constraints nullable="false"/></column>
+            <column name="COUNTRY"      type="VARCHAR2(50)"  defaultValue="USA"><constraints nullable="false"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:DATE_TYPE] Oracle DATE type -->
+            <column name="CREATED_DATE" type="DATE"          defaultValueComputed="SYSDATE"/>
+            <column name="UPDATED_DATE" type="DATE"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="001-customers" author="meridian" dbms="oracle">
+        <createTable tableName="CUSTOMERS" schemaName="MERIDIAN">
+            <column name="CUSTOMER_ID"   type="NUMBER(19)"  ><constraints primaryKey="true"/></column>
+            <column name="FIRST_NAME"    type="VARCHAR2(100)"><constraints nullable="false"/></column>
+            <column name="LAST_NAME"     type="VARCHAR2(100)"><constraints nullable="false"/></column>
+            <column name="EMAIL"         type="VARCHAR2(200)"><constraints nullable="false" unique="true"/></column>
+            <column name="PHONE"         type="VARCHAR2(20)"/>
+            <column name="DATE_OF_BIRTH" type="DATE"         ><constraints nullable="false"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:RAW_TYPE] Oracle RAW type for encrypted SSN -->
+            <column name="SSN_ENCRYPTED" type="RAW(256)"/>    <!-- ORACLE-DEP [EMBEDDED_SQL:RAW_TYPE] -->
+            <column name="SSN_HASH"      type="RAW(32)"/>
+            <column name="ADDRESS_ID"    type="NUMBER(19)"/>
+            <column name="STATUS"        type="VARCHAR2(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:NUMBER_TYPE] NUMBER(4) credit score -->
+            <column name="CREDIT_SCORE"  type="NUMBER(4)"/>
+            <column name="CREATED_DATE"  type="DATE"         defaultValueComputed="SYSDATE"/>
+            <column name="UPDATED_DATE"  type="DATE"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableSchemaName="MERIDIAN" baseTableName="CUSTOMERS"
+            baseColumnNames="ADDRESS_ID"
+            referencedTableSchemaName="MERIDIAN" referencedTableName="ADDRESSES"
+            referencedColumnNames="ADDRESS_ID"
+            constraintName="FK_CUST_ADDRESS"/>
+    </changeSet>
+
+    <changeSet id="001-accounts" author="meridian" dbms="oracle">
+        <createTable tableName="ACCOUNTS" schemaName="MERIDIAN">
+            <column name="ACCOUNT_ID"     type="NUMBER(19)"   ><constraints primaryKey="true"/></column>
+            <column name="ACCOUNT_NUMBER" type="VARCHAR2(20)" ><constraints nullable="false" unique="true"/></column>
+            <column name="ACCOUNT_TYPE"   type="VARCHAR2(20)" ><constraints nullable="false"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:NUMBER_TYPE] NUMBER(19,4) monetary amount -->
+            <column name="BALANCE"        type="NUMBER(19,4)" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="STATUS"         type="VARCHAR2(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="OPEN_DATE"      type="DATE"         defaultValueComputed="SYSDATE"/>
+            <column name="CLOSE_DATE"     type="DATE"/>
+            <column name="CUSTOMER_ID"    type="NUMBER(19)"   ><constraints nullable="false"/></column>
+            <column name="BRANCH_ID"      type="NUMBER(19)"   ><constraints nullable="false"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:NUMBER_TYPE] NUMBER(6,4) interest rate precision -->
+            <column name="INTEREST_RATE"  type="NUMBER(6,4)"  defaultValueNumeric="0"/>
+            <column name="OVERDRAFT_LIMIT" type="NUMBER(12,2)" defaultValueNumeric="0"/>
+            <column name="CREATED_DATE"   type="DATE"         defaultValueComputed="SYSDATE"/>
+            <column name="UPDATED_DATE"   type="DATE"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="001-transactions" author="meridian" dbms="oracle">
+        <createTable tableName="TRANSACTIONS" schemaName="MERIDIAN">
+            <column name="TRANSACTION_ID"   type="NUMBER(19)"      ><constraints primaryKey="true"/></column>
+            <column name="ACCOUNT_ID"       type="NUMBER(19)"      ><constraints nullable="false"/></column>
+            <column name="AMOUNT"           type="NUMBER(19,4)"    ><constraints nullable="false"/></column>
+            <column name="TRANSACTION_TYPE" type="VARCHAR2(20)"    ><constraints nullable="false"/></column>
+            <column name="DESCRIPTION"      type="VARCHAR2(500)"/>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:TIMESTAMP_TZ] Oracle TIMESTAMP WITH TIME ZONE -->
+            <column name="TRANSACTION_DATE" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="SYSTIMESTAMP"/>
+            <column name="STATUS"           type="VARCHAR2(20)"    defaultValue="COMPLETED"/>
+            <column name="REFERENCE_NUMBER" type="VARCHAR2(50)"/>
+            <column name="COUNTERPARTY_ID"  type="NUMBER(19)"/>
+            <column name="CATEGORY_CODE"    type="VARCHAR2(50)"/>
+            <column name="CREATED_DATE"     type="DATE"            defaultValueComputed="SYSDATE"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableSchemaName="MERIDIAN" baseTableName="TRANSACTIONS"
+            baseColumnNames="ACCOUNT_ID"
+            referencedTableSchemaName="MERIDIAN" referencedTableName="ACCOUNTS"
+            referencedColumnNames="ACCOUNT_ID"
+            constraintName="FK_TXN_ACCOUNT"/>
+    </changeSet>
+
+    <changeSet id="001-audit-log" author="meridian" dbms="oracle">
+        <createTable tableName="AUDIT_LOG" schemaName="MERIDIAN">
+            <column name="AUDIT_ID"       type="NUMBER(19)"            ><constraints primaryKey="true"/></column>
+            <column name="TABLE_NAME"     type="VARCHAR2(100)"         ><constraints nullable="false"/></column>
+            <column name="OPERATION_TYPE" type="VARCHAR2(10)"          ><constraints nullable="false"/></column>
+            <column name="RECORD_ID"      type="VARCHAR2(100)"         ><constraints nullable="false"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:CLOB_TYPE] Oracle CLOB for old/new values JSON -->
+            <column name="OLD_VALUES"     type="CLOB"/>                 <!-- ORACLE-DEP [EMBEDDED_SQL:CLOB_TYPE] -->
+            <column name="NEW_VALUES"     type="CLOB"/>
+            <column name="CHANGED_BY"     type="VARCHAR2(100)"         ><constraints nullable="false"/></column>
+            <column name="CHANGED_DATE"   type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="SYSTIMESTAMP"/>
+            <column name="IP_ADDRESS"     type="VARCHAR2(50)"/>
+            <column name="SESSION_ID"     type="VARCHAR2(100)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="001-documents" author="meridian" dbms="oracle">
+        <createTable tableName="DOCUMENTS" schemaName="MERIDIAN">
+            <column name="DOCUMENT_ID"  type="NUMBER(19)"   ><constraints primaryKey="true"/></column>
+            <column name="TITLE"        type="VARCHAR2(500)" ><constraints nullable="false"/></column>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:CLOB_TYPE] CLOB for Oracle Text indexing -->
+            <column name="CONTENT"      type="CLOB"/>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:BLOB_TYPE] BLOB for binary document data -->
+            <column name="DOCUMENT_DATA" type="BLOB"/>
+            <column name="CATEGORY"     type="VARCHAR2(50)"/>
+            <column name="MIME_TYPE"    type="VARCHAR2(100)"/>
+            <column name="CUSTOMER_ID"  type="NUMBER(19)"/>
+            <column name="INDEXED_DATE" type="DATE"/>
+            <column name="CREATED_DATE" type="DATE"          defaultValueComputed="SYSDATE"/>
+            <column name="STATUS"       type="VARCHAR2(20)"  defaultValue="ACTIVE"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

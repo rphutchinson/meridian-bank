@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL] Service-name URL for local dev (FREEPDB1 is the PDB where MERIDIAN schema lives)
+    # SID format (@localhost:1521:FREE) connects to CDB root where MERIDIAN user doesn't exist
+    url: jdbc:oracle:thin:@//localhost:1521/FREEPDB1     # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL_SERVICE]
+    hikari:
+      maximum-pool-size: 5
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.meridianbank: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE

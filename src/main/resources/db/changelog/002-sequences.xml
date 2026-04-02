@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+        ORACLE-DEP [ORM_DATA_ACCESS:LIQUIBASE] Oracle sequence definitions via Liquibase
+        ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] All application sequences
+    -->
+
+    <preConditions onFail="MARK_RAN">
+        <dbms type="oracle"/>
+    </preConditions>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] customer_seq -->
+    <changeSet id="002-seq-customer" author="meridian" dbms="oracle">
+        <createSequence sequenceName="CUSTOMER_SEQ" schemaName="MERIDIAN"
+                        startValue="1000" incrementBy="1" ordered="true"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] address_seq -->
+    <changeSet id="002-seq-address" author="meridian" dbms="oracle">
+        <createSequence sequenceName="ADDRESS_SEQ" schemaName="MERIDIAN"
+                        startValue="4000" incrementBy="1" ordered="true"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] account_seq -->
+    <changeSet id="002-seq-account" author="meridian" dbms="oracle">
+        <createSequence sequenceName="ACCOUNT_SEQ" schemaName="MERIDIAN"
+                        startValue="2000" incrementBy="1" ordered="true"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] transaction_seq (cached) -->
+    <changeSet id="002-seq-transaction" author="meridian" dbms="oracle">
+        <createSequence sequenceName="TRANSACTION_SEQ" schemaName="MERIDIAN"
+                        startValue="10000" incrementBy="1" cacheSize="100" ordered="false"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] transaction_ref_seq -->
+    <changeSet id="002-seq-txn-ref" author="meridian" dbms="oracle">
+        <createSequence sequenceName="TRANSACTION_REF_SEQ" schemaName="MERIDIAN"
+                        startValue="100000" incrementBy="1" cacheSize="50" ordered="false"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] audit_log_seq (cached) -->
+    <changeSet id="002-seq-audit" author="meridian" dbms="oracle">
+        <createSequence sequenceName="AUDIT_LOG_SEQ" schemaName="MERIDIAN"
+                        startValue="1" incrementBy="1" cacheSize="200" ordered="false"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] loan_app_seq -->
+    <changeSet id="002-seq-loan" author="meridian" dbms="oracle">
+        <createSequence sequenceName="LOAN_APP_SEQ" schemaName="MERIDIAN"
+                        startValue="7000" incrementBy="1" ordered="true"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] document_seq -->
+    <changeSet id="002-seq-document" author="meridian" dbms="oracle">
+        <createSequence sequenceName="DOCUMENT_SEQ" schemaName="MERIDIAN"
+                        startValue="8000" incrementBy="1" ordered="true"/>
+    </changeSet>
+
+    <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE] notification_seq -->
+    <changeSet id="002-seq-notification" author="meridian" dbms="oracle">
+        <createSequence sequenceName="NOTIFICATION_SEQ" schemaName="MERIDIAN"
+                        startValue="9000" incrementBy="1" cacheSize="20" ordered="false"/>
+    </changeSet>
+
+</databaseChangeLog>

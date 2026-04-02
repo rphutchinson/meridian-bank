@@ -1,0 +1,32 @@
+version: '3.8'
+
+# Meridian Bank — Oracle Database 23ai Free container
+# ORACLE-DEP [CONNECTIVITY_CONFIG:DOCKER_ORACLE] Oracle Database 23ai Free image
+
+services:
+  oracle-db:
+    container_name: meridian-oracle
+    image: container-registry.oracle.com/database/free:latest
+    ports:
+      - "1521:1521"   # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_PORT] Standard Oracle listener port
+      - "5500:5500"   # Oracle Enterprise Manager Express
+    environment:
+      - ORACLE_PWD=MeridianBank2026
+      - ORACLE_CHARACTERSET=AL32UTF8
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./init-scripts:/opt/oracle/scripts/startup
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -S SYSTEM/MeridianBank2026@//localhost:1521/FREEPDB1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+
+volumes:
+  oracle-data:
+    driver: local

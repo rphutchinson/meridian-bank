@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+        ORACLE-DEP [ORM_DATA_ACCESS:LIQUIBASE] Oracle Text index via Liquibase SQL changeSet
+        ORACLE-DEP [EMBEDDED_SQL:ORACLE_TEXT] Oracle Text CONTEXT index
+    -->
+
+    <preConditions onFail="MARK_RAN">
+        <dbms type="oracle"/>
+    </preConditions>
+
+    <changeSet id="003-oracle-text-index" author="meridian" dbms="oracle">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_TEXT] Oracle Text CONTEXT index on DOCUMENTS.CONTENT -->
+        <sql splitStatements="false">
+            BEGIN
+                EXECUTE IMMEDIATE '
+                    CREATE INDEX MERIDIAN.IDX_DOC_CONTENT_TEXT
+                    ON MERIDIAN.DOCUMENTS (CONTENT)
+                    INDEXTYPE IS CTXSYS.CONTEXT
+                    PARAMETERS (''SYNC (ON COMMIT)'')
+                ';
+            EXCEPTION
+                WHEN OTHERS THEN
+                    IF SQLCODE != -955 THEN RAISE; END IF;
+            END;
+        </sql>
+        <rollback>
+            <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_TEXT] Drop Oracle Text CONTEXT index -->
+            <sql>DROP INDEX MERIDIAN.IDX_DOC_CONTENT_TEXT</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

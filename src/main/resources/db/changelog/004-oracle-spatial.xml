@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+        ORACLE-DEP [ORM_DATA_ACCESS:LIQUIBASE] Oracle Spatial metadata via Liquibase
+        ORACLE-DEP [EMBEDDED_SQL:SDO_GEOMETRY] Oracle Spatial metadata registration
+    -->
+
+    <preConditions onFail="MARK_RAN">
+        <dbms type="oracle"/>
+    </preConditions>
+
+    <changeSet id="004-spatial-metadata" author="meridian" dbms="oracle">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:SDO_GEOMETRY] Register BRANCHES spatial metadata -->
+        <sql splitStatements="true">
+            DELETE FROM USER_SDO_GEOM_METADATA WHERE TABLE_NAME='BRANCHES' AND COLUMN_NAME='LOCATION';
+            INSERT INTO USER_SDO_GEOM_METADATA VALUES (
+                'BRANCHES', 'LOCATION',
+                MDSYS.SDO_DIM_ARRAY(
+                    MDSYS.SDO_DIM_ELEMENT('LONGITUDE',-180,180,0.005),
+                    MDSYS.SDO_DIM_ELEMENT('LATITUDE',-90,90,0.005)
+                ), 8307
+            );
+        </sql>
+    </changeSet>
+
+    <changeSet id="004-spatial-index-branches" author="meridian" dbms="oracle">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:SPATIAL_INDEX] Oracle spatial R-tree index -->
+        <sql splitStatements="false">
+            BEGIN
+                EXECUTE IMMEDIATE '
+                    CREATE INDEX MERIDIAN.IDX_BRANCH_LOCATION
+                    ON MERIDIAN.BRANCHES (LOCATION)
+                    INDEXTYPE IS MDSYS.SPATIAL_INDEX
+                ';
+            EXCEPTION
+                WHEN OTHERS THEN IF SQLCODE != -955 THEN RAISE; END IF;
+            END;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

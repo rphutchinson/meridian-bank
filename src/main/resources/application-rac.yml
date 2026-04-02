@@ -1,0 +1,15 @@
+# Oracle RAC (Real Application Clusters) profile
+# ORACLE-DEP [MIDDLEWARE:ORACLE_RAC] Oracle RAC ONS configuration
+# ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_ONS] Oracle Notification Service for FCF
+
+spring:
+  datasource:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL_RAC] RAC connection string with multiple nodes
+    url: jdbc:oracle:thin:@(DESCRIPTION=(LOAD_BALANCE=ON)(FAILOVER=ON)(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=rac-node1.meridianbank.internal)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=rac-node2.meridianbank.internal)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=MERIDIANPRD)(SERVER=DEDICATED)))
+
+# ORACLE-DEP [MIDDLEWARE:ORACLE_ONS] ONS configuration for Fast Connection Failover
+oracle:
+  ucp:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:CONNECTION_POOL] UCP fast connection failover
+    fast_connection_failover_enabled: true               # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_UCP_FCF]
+    ons_configuration: nodes=rac-node1.meridianbank.internal:6200,rac-node2.meridianbank.internal:6200  # ORACLE-DEP [MIDDLEWARE:ORACLE_ONS]

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  weblogic.xml — Oracle WebLogic Server deployment descriptor
+  ORACLE-DEP [MIDDLEWARE:WEBLOGIC_DESCRIPTOR] WebLogic deployment descriptor
+  ORACLE-DEP [MIDDLEWARE:WEBLOGIC_JNDI] JNDI DataSource binding for Oracle DataSource
+
+  Not active in Spring Boot standalone mode.
+  Included to demonstrate WebLogic JNDI DataSource patterns (§4.6 / §2.10).
+-->
+<weblogic-web-app
+    xmlns="http://xmlns.oracle.com/weblogic/weblogic-web-app"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://xmlns.oracle.com/weblogic/weblogic-web-app
+        http://xmlns.oracle.com/weblogic/weblogic-web-app/1.9/weblogic-web-app.xsd">
+
+    <weblogic-version>14.1.1</weblogic-version>
+
+    <!-- ORACLE-DEP [MIDDLEWARE:WEBLOGIC_JNDI] JNDI DataSource resource reference -->
+    <resource-description>
+        <!-- Maps Java EE resource ref to WebLogic JNDI-bound Oracle DataSource -->
+        <res-ref-name>jdbc/MeridianDS</res-ref-name>                  <!-- ORACLE-DEP [MIDDLEWARE:WEBLOGIC_JNDI] -->
+        <jndi-name>jdbc/MeridianOracleDataSource</jndi-name>          <!-- ORACLE-DEP [MIDDLEWARE:WEBLOGIC_JNDI] -->
+    </resource-description>
+
+    <container-descriptor>
+        <prefer-application-packages>
+            <!-- ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_DRIVER] Ensure app's Oracle JDBC driver is used -->
+            <package-name>oracle.jdbc.*</package-name>                <!-- ORACLE-DEP [ORACLE_JAVA_API:JDBC_DRIVER] -->
+            <package-name>oracle.sql.*</package-name>
+            <package-name>oracle.ucp.*</package-name>
+        </prefer-application-packages>
+    </container-descriptor>
+
+    <session-descriptor>
+        <cookie-name>JSESSIONID</cookie-name>
+        <persistent-store-type>replicated_if_clustered</persistent-store-type>
+    </session-descriptor>
+
+</weblogic-web-app>

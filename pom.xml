@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.meridianbank</groupId>
+    <artifactId>meridian-bank</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>Meridian Bank</name>
+    <description>Oracle Migration Test Application — Meridian Bank reference app demonstrating
+        every Oracle application-tier dependency category from the migration taxonomy</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_DRIVER] Oracle JDBC driver version -->
+        <oracle.jdbc.version>23.5.0.24.07</oracle.jdbc.version>
+        <mybatis.spring.boot.version>3.0.3</mybatis.spring.boot.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- ===== Spring Boot Starters ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- ===== Oracle Dependencies (§2.3 — Connectivity & Configuration) ===== -->
+
+        <!-- ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_DRIVER] Oracle JDBC 11 thin driver -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+            <version>${oracle.jdbc.version}</version>
+        </dependency>
+
+        <!-- ORACLE-DEP [CONNECTIVITY_CONFIG:CONNECTION_POOL] Oracle Universal Connection Pool (UCP) -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ucp</artifactId>
+            <version>${oracle.jdbc.version}</version>
+        </dependency>
+
+        <!-- ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_WALLET] Oracle PKI / Wallet security library -->
+        <dependency>
+            <groupId>com.oracle.database.security</groupId>
+            <artifactId>oraclepki</artifactId>
+            <version>${oracle.jdbc.version}</version>
+        </dependency>
+
+        <!-- ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_XML_DB] Oracle XML DB support (xdb) -->
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xdb</artifactId>
+            <version>${oracle.jdbc.version}</version>
+        </dependency>
+
+        <!-- ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_AQ] Oracle Advanced Queuing JMS API
+             NOTE: aqapi-jakarta is NOT published to Maven Central.
+             It ships with Oracle Database and must be installed manually:
+               mvn install:install-file -Dfile=$ORACLE_HOME/rdbms/jlib/aqapi.jar \
+                 -DgroupId=com.oracle.database.messaging -DartifactId=aqapi-jakarta \
+                 -Dversion=23.5.0.24.07 -Dpackaging=jar
+             OracleAQConfig uses Class.forName() reflection so compilation succeeds without it. -->
+
+        <!-- Jakarta JMS API — required for OracleAQConfig to compile; AQ jar loaded at runtime via reflection -->
+        <dependency>
+            <groupId>jakarta.jms</groupId>
+            <artifactId>jakarta.jms-api</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+
+        <!-- ===== ORM & Data Access (§2.4) ===== -->
+
+        <!-- ORACLE-DEP [ORM_DATA_ACCESS:MYBATIS] MyBatis Spring Boot starter with Oracle type handlers -->
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>${mybatis.spring.boot.version}</version>
+        </dependency>
+
+        <!-- ORACLE-DEP [ORM_DATA_ACCESS:LIQUIBASE] Liquibase with Oracle-specific DDL migrations -->
+        <dependency>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-core</artifactId>
+        </dependency>
+
+        <!-- ===== General Dependencies ===== -->
+        <!-- Lombok removed: incompatible with JDK 25. Boilerplate generated explicitly. -->
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- ===== Test Dependencies ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter-test</artifactId>
+            <version>${mybatis.spring.boot.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Classpath scanning for DependencyReportGenerator -->
+        <dependency>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>0.10.2</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- No excludes needed; Lombok removed from project -->
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <release>21</release>
+                    <compilerArgs>
+                        <arg>-parameters</arg>
+                    </compilerArgs>
+                    <!-- No annotation processor paths needed; Lombok removed -->
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>--add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/java.util=ALL-UNNAMED
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.nio=ALL-UNNAMED
+                        --add-opens java.base/sun.nio.ch=ALL-UNNAMED
+                        -Djdk.attach.allowAttachSelf=true</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

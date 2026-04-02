@@ -1,0 +1,45 @@
+# IDE and editor directories
+.vscode/
+.claude/
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot
+*.jar
+*.war
+*.ear
+*.nar
+
+# Logs
+logs/
+*.log
+
+# Environment / secrets
+.env
+*.p12
+*.jks
+*.keystore
+*.wallet
+cwallet.sso
+ewallet.p12
+tnsnames.ora
+
+# Docker volumes (local data)
+oracle-data/

@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  MyBatis mapper for Transaction operations.
+  Contains Oracle-specific SQL: TRUNC, TO_CHAR, SYSDATE, ROWNUM, date arithmetic.
+  Every Oracle construct is marked with ORACLE-DEP comments.
+-->
+<mapper namespace="com.meridianbank.mybatis.mapper.TransactionMapper">
+
+    <!-- ============================================================
+         Result Maps
+         ============================================================ -->
+
+    <resultMap id="TransactionDTOMap" type="com.meridianbank.dto.TransactionDTO">
+        <id     property="transactionId"     column="transaction_id"/>
+        <result property="referenceNumber"   column="reference_number"/>
+        <result property="accountId"         column="account_id"/>
+        <result property="amount"            column="amount"/>
+        <result property="transactionType"   column="transaction_type"/>
+        <result property="description"       column="description"/>
+        <result property="transactionDate"   column="transaction_date"/>
+        <result property="status"            column="status"/>
+        <result property="counterpartyId"    column="counterparty_id"/>
+        <result property="categoryCode"      column="category_code"/>
+        <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] Formatted values from Oracle TO_CHAR() -->
+        <result property="formattedAmount"   column="formatted_amount"/>
+        <result property="formattedDate"     column="formatted_date"/>
+    </resultMap>
+
+    <!-- ============================================================
+         insertTransaction
+         Uses selectKey with TRANSACTION_SEQ.NEXTVAL for ID generation.
+         ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL]
+         Migration: Use PostgreSQL IDENTITY column or nextval()
+         ============================================================ -->
+    <insert id="insertTransaction" parameterType="com.meridianbank.dto.TransactionDTO">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL] Primary key from Oracle sequence -->
+        <selectKey keyProperty="transactionId" resultType="long" order="BEFORE">
+            SELECT meridian.transaction_seq.NEXTVAL FROM DUAL <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL] [EMBEDDED_SQL:DUAL_TABLE] -->
+        </selectKey>
+        INSERT INTO meridian.transactions (
+            transaction_id,
+            reference_number,
+            account_id,
+            amount,
+            transaction_type,
+            description,
+            transaction_date,
+            status,
+            counterparty_id,
+            category_code,
+            created_date
+        ) VALUES (
+            #{transactionId},
+            <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL] Reference number from separate sequence -->
+            TO_CHAR(meridian.transaction_ref_seq.NEXTVAL), <!-- ORACLE-DEP [EMBEDDED_SQL:SEQUENCE_NEXTVAL] [EMBEDDED_SQL:TO_CHAR] -->
+            #{accountId},
+            #{amount},
+            #{transactionType},
+            <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for null description -->
+            NVL(#{description}, 'Transaction'), <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+            <!-- ORACLE-DEP [EMBEDDED_SQL:SYSTIMESTAMP] SYSTIMESTAMP for transaction timestamp -->
+            NVL(#{transactionDate}, SYSTIMESTAMP), <!-- ORACLE-DEP [EMBEDDED_SQL:SYSTIMESTAMP] [EMBEDDED_SQL:NVL_FUNCTION] -->
+            NVL(#{status}, 'COMPLETED'),
+            #{counterpartyId},
+            #{categoryCode},
+            SYSTIMESTAMP <!-- ORACLE-DEP [EMBEDDED_SQL:SYSTIMESTAMP] -->
+        )
+    </insert>
+
+    <!-- ============================================================
+         findByAccountAndDateRange
+         Uses TRUNC() for date-only comparison and Oracle INDEX hint.
+         ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] [EMBEDDED_SQL:ORACLE_HINTS]
+         Migration: Use DATE_TRUNC('day', ...) in PostgreSQL; remove hint
+         ============================================================ -->
+    <select id="findByAccountAndDateRange" resultMap="TransactionDTOMap">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_HINTS] Index hint for account+date lookup -->
+        SELECT /*+ INDEX(t IDX_TXN_ACCOUNT_DATE) */ <!-- ORACLE-DEP [EMBEDDED_SQL:ORACLE_HINTS] -->
+               t.transaction_id,
+               t.reference_number,
+               t.account_id,
+               t.amount,
+               t.transaction_type,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for null description -->
+               NVL(t.description, 'N/A') AS description, <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+               t.transaction_date,
+               t.status,
+               t.counterparty_id,
+               t.category_code,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] TO_CHAR for formatted display values -->
+               TO_CHAR(t.amount, 'FM$999,999,990.00')                            AS formatted_amount, <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] -->
+               TO_CHAR(t.transaction_date, 'DD-MON-YYYY HH24:MI:SS')             AS formatted_date   <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] -->
+        FROM   meridian.transactions t
+        WHERE  t.account_id = #{accountId}
+        <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] TRUNC to compare date portions only -->
+        AND    TRUNC(t.transaction_date) BETWEEN TRUNC(#{startDate}) AND TRUNC(#{endDate}) <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] -->
+        ORDER  BY t.transaction_date DESC
+    </select>
+
+    <!-- ============================================================
+         findRecentFormatted
+         Uses TO_CHAR for display formatting and ROWNUM for top-N.
+         ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] [EMBEDDED_SQL:ROWNUM]
+         Migration: Use TO_CHAR (PostgreSQL has same name) + FETCH FIRST 10 ROWS ONLY
+         ============================================================ -->
+    <select id="findRecentFormatted" resultType="map">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ROWNUM] ROWNUM to limit to 10 most recent transactions -->
+        SELECT * FROM (
+            SELECT t.transaction_id,
+                   t.reference_number,
+                   t.transaction_type,
+                   t.amount,
+                   <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] Oracle TO_CHAR for amount formatting -->
+                   TO_CHAR(t.amount, 'FM$999,999,990.00') AS formatted_amount, <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] -->
+                   <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] Oracle TO_CHAR for date formatting -->
+                   TO_CHAR(t.transaction_date, 'DD-MON-YYYY HH24:MI:SS') AS formatted_date, <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] -->
+                   t.status,
+                   NVL(t.description, 'N/A') AS description <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+            FROM   meridian.transactions t
+            WHERE  t.account_id = #{accountId}
+            ORDER  BY t.transaction_date DESC
+        )
+        WHERE ROWNUM &lt;= 10 <!-- ORACLE-DEP [EMBEDDED_SQL:ROWNUM] -->
+    </select>
+
+    <!-- ============================================================
+         findMonthlySummary
+         Groups by TRUNC(date, 'MM') — Oracle-specific truncation to month.
+         ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE]
+         Migration: Use DATE_TRUNC('month', transaction_date) in PostgreSQL
+         ============================================================ -->
+    <select id="findMonthlySummary" resultType="map">
+        SELECT <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] TRUNC(date, 'MM') truncates to month start -->
+               TRUNC(t.transaction_date, 'MM')                                AS month_start, <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] -->
+               <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] TO_CHAR for month label -->
+               TO_CHAR(TRUNC(t.transaction_date, 'MM'), 'MON YYYY')           AS month_label, <!-- ORACLE-DEP [EMBEDDED_SQL:TO_CHAR] [EMBEDDED_SQL:TRUNC_DATE] -->
+               t.transaction_type,
+               COUNT(*)                                                        AS txn_count,
+               SUM(t.amount)                                                   AS total_amount,
+               AVG(t.amount)                                                   AS avg_amount
+        FROM   meridian.transactions t
+        WHERE  t.account_id = #{accountId}
+        <!-- ORACLE-DEP [EMBEDDED_SQL:ADD_MONTHS] ADD_MONTHS for lookback period -->
+        AND    t.transaction_date >= ADD_MONTHS(SYSDATE, -#{months}) <!-- ORACLE-DEP [EMBEDDED_SQL:ADD_MONTHS] [EMBEDDED_SQL:SYSDATE] -->
+        GROUP  BY TRUNC(t.transaction_date, 'MM'), t.transaction_type <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] -->
+        ORDER  BY month_start DESC, t.transaction_type
+    </select>
+
+    <!-- ============================================================
+         findWithNvlDescription
+         Simple NVL usage for null-safe description.
+         ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION]
+         ============================================================ -->
+    <select id="findWithNvlDescription" resultMap="TransactionDTOMap">
+        SELECT t.transaction_id,
+               t.reference_number,
+               t.account_id,
+               t.amount,
+               t.transaction_type,
+               <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] NVL for null description default -->
+               NVL(t.description, 'No description provided') AS description, <!-- ORACLE-DEP [EMBEDDED_SQL:NVL_FUNCTION] -->
+               t.transaction_date,
+               t.status,
+               t.counterparty_id,
+               t.category_code
+        FROM   meridian.transactions t
+        WHERE  t.account_id = #{accountId}
+        ORDER  BY t.transaction_date DESC
+    </select>
+
+    <!-- ============================================================
+         countTodaysTransactions
+         Uses SYSDATE for current-day comparison.
+         ORACLE-DEP [EMBEDDED_SQL:SYSDATE] [EMBEDDED_SQL:TRUNC_DATE]
+         Migration: Use CURRENT_DATE in PostgreSQL
+         ============================================================ -->
+    <select id="countTodaysTransactions" resultType="long">
+        <!-- ORACLE-DEP [EMBEDDED_SQL:SYSDATE] SYSDATE for current date reference -->
+        <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] TRUNC removes time component for date comparison -->
+        SELECT COUNT(*)
+        FROM   meridian.transactions t
+        WHERE  t.account_id = #{accountId}
+        AND    TRUNC(t.transaction_date) = TRUNC(SYSDATE) <!-- ORACLE-DEP [EMBEDDED_SQL:TRUNC_DATE] [EMBEDDED_SQL:SYSDATE] -->
+    </select>
+
+    <!-- ============================================================
+         bulkInsertTransactions
+         Delegates to Oracle PL/SQL TRANSACTION_PKG.BULK_INSERT which uses FORALL.
+         ORACLE-DEP [PLSQL_INVOCATION:PACKAGE_CALL]
+         Migration: Use PostgreSQL batch INSERT or unnest() with JDBC batch operations
+         ============================================================ -->
+    <update id="bulkInsertTransactions">
+        <!-- ORACLE-DEP [PLSQL_INVOCATION:PACKAGE_CALL] Call Oracle PL/SQL package for bulk insert -->
+        BEGIN <!-- ORACLE-DEP [PLSQL_INVOCATION:ANONYMOUS_BLOCK] -->
+            TRANSACTION_PKG.BULK_INSERT(p_count => #{transactions.size}); <!-- ORACLE-DEP [PLSQL_INVOCATION:PACKAGE_CALL] -->
+        END;
+    </update>
+
+</mapper>

@@ -1,0 +1,14 @@
+# OCI (thick) driver profile using TNS names
+# ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL_OCI] Oracle OCI driver with TNS alias
+# ORACLE-DEP [CONNECTIVITY_CONFIG:TNS_CONFIG] tnsnames.ora reference
+
+spring:
+  datasource:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL_OCI] OCI driver URL format with TNS alias
+    url: jdbc:oracle:oci:@MERIDIANPRD                    # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL_OCI]
+    driver-class-name: oracle.jdbc.OracleDriver
+
+# ORACLE-DEP [CONNECTIVITY_CONFIG:TNS_ADMIN] TNS_ADMIN environment variable for tnsnames.ora
+oracle:
+  net:
+    tns_admin: ${TNS_ADMIN:/opt/oracle/network/admin}    # ORACLE-DEP [CONNECTIVITY_CONFIG:TNS_ADMIN]

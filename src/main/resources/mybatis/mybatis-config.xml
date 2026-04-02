@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<!--
+  MyBatis global configuration
+  ORACLE-DEP [ORM_DATA_ACCESS:MYBATIS] Oracle-specific MyBatis type handlers and settings
+-->
+<configuration>
+
+    <settings>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+        <setting name="defaultFetchSize" value="100"/>
+        <setting name="defaultStatementTimeout" value="30"/>
+        <setting name="useGeneratedKeys" value="false"/>  <!-- Oracle uses sequences, not auto-increment -->
+        <setting name="cacheEnabled" value="true"/>
+        <setting name="lazyLoadingEnabled" value="false"/>
+    </settings>
+
+    <typeAliases>
+        <package name="com.meridianbank.dto"/>
+    </typeAliases>
+
+    <!--
+        ORACLE-DEP [ORM_DATA_ACCESS:MYBATIS_TYPE_HANDLERS]
+        Oracle-specific type handlers registered here.
+        These handle oracle.sql.CLOB, oracle.sql.ARRAY, oracle.sql.STRUCT.
+    -->
+    <typeHandlers>
+        <!-- ORACLE-DEP [ORM_DATA_ACCESS:ORACLE_CLOB_HANDLER] CLOB type handler using oracle.sql.CLOB -->
+        <typeHandler handler="com.meridianbank.mybatis.handler.OracleClobTypeHandler"
+                     javaType="String"
+                     jdbcType="CLOB"/>
+
+        <!-- ORACLE-DEP [ORM_DATA_ACCESS:ORACLE_ARRAY_HANDLER] ARRAY type handler using oracle.sql.ARRAY -->
+        <typeHandler handler="com.meridianbank.mybatis.handler.OracleArrayTypeHandler"/>
+
+        <!-- ORACLE-DEP [ORM_DATA_ACCESS:ORACLE_STRUCT_HANDLER] STRUCT type handler using oracle.sql.STRUCT -->
+        <typeHandler handler="com.meridianbank.mybatis.handler.OracleStructTypeHandler"/>
+    </typeHandlers>
+
+    <mappers>
+        <!-- ORACLE-DEP [ORM_DATA_ACCESS:MYBATIS] Oracle SQL in mapper XML files -->
+        <mapper resource="mybatis/mapper/AccountMapper.xml"/>
+        <mapper resource="mybatis/mapper/TransactionMapper.xml"/>
+        <mapper resource="mybatis/mapper/ReportMapper.xml"/>
+    </mappers>
+
+</configuration>

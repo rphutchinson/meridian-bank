@@ -1,0 +1,19 @@
+# Oracle Wallet authentication profile
+# ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_WALLET] Oracle Wallet-based auth
+# ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_NET_WALLET] oracle.net.wallet_location property
+
+spring:
+  datasource:
+    # ORACLE-DEP [CONNECTIVITY_CONFIG:JDBC_URL_WALLET] Wallet-based connection URL
+    url: jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=prod-oracle.meridianbank.internal)(PORT=2484))(CONNECT_DATA=(SERVICE_NAME=MERIDIANPRD)))
+    # No username/password — wallet provides credentials
+    username:
+    password:
+
+# ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_WALLET] Wallet location property
+oracle:
+  net:
+    wallet_location: ${ORACLE_WALLET_LOCATION:/opt/oracle/wallet}  # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_WALLET]
+    wallet_password: ${ORACLE_WALLET_PASSWORD:}                     # ORACLE-DEP [CONNECTIVITY_CONFIG:ORACLE_WALLET]
+  ssl:
+    server_dn_match: true
